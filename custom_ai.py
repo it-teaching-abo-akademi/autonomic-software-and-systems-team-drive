@@ -5,7 +5,7 @@ import os
 import sys
 
 try:
-    sys.path.append(glob.glob('**/*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob('**/**/*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
@@ -33,9 +33,9 @@ class Autopilot(object):
     self.crashed = lambda *_, **__: None
 
   def status_updated(self, new_status):
-    if new_status == data.ARRIVED:
+    if new_status == data.Status.ARRIVED:
       self.route_finished(self)
-    if new_status == data.CRASHED:
+    if new_status == data.Status.CRASHED:
       self.crashed(self)
 
   def set_route_finished_callback(self, callback):
@@ -43,13 +43,15 @@ class Autopilot(object):
 
   def set_crash_callback(self, callback):
     self.crashed = callback
+
+  def get_vehicle(self):
+    return self.vehicle
  
   #Update all the modules and return the current status
   def update(self):
     ctime = int(round(time.time() * 1000))
     delta_time = ctime - self.prev_time
     self.prev_time = ctime
-
     self.monitor.update(delta_time)
     self.analyser.update(delta_time)
     self.planner.update(delta_time)

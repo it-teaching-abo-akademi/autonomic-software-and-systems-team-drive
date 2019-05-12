@@ -5,7 +5,7 @@ import os
 import sys
 
 try:
-    sys.path.append(glob.glob('**/*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob('**/**/*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
@@ -20,13 +20,13 @@ class Status(Enum):
   DRIVING = 1
   CRASHED = 2
   HEALING = 3
-  EVADING = 4
+  UNDEFINED = 4
 
 # Class that holds the knowledge of the current state and serves as interaction point for all the modules
 class Knowledge(object):
   def __init__(self):
-    self.status = Status.ARRIVED
-    self.memory = {'location':0}    
+    self.status = Status.DRIVING
+    self.memory = {'location':carla.Vector3D(0.0,0.0,0.0)}
     self.destination = self.get_location()
     self.status_changed = lambda *_, **__: None
     self.destination_changed = lambda *_, **__: None
@@ -65,14 +65,63 @@ class Knowledge(object):
   def get_location(self):
     return self.retrieve_data('location')
 
+  def get_rotation(self):
+    return self.retrieve_data('rotation')
+
+  def get_velocity(self):
+    return self.retrieve_data('velocity')
+
+  def get_world(self):
+    return self.retrieve_data('world')
+
+  def get_map(self):
+    return self.retrieve_data('map')
+
+  def get_bounding_box(self):
+    return self.retrieve_data('bounding_box')
+
+  def get_lidar(self):
+    return self.retrieve_data('lidar')
+
+  def lidar_close(self):
+    return self.retrieve_data('lidar_close')
+
+  def get_at_traffic_light(self):
+    return self.retrieve_data('at_traffic_light')
+
+  def traffic_light_state(self):
+    return self.retrieve_data('traffic_light_state')
+
+  def get_road_graph(self):
+    return self.retrieve_data('road_graph')
+
+  def get_integral(self):
+    return self.retrieve_data('integral')
+
+  def get_previous_error(self):
+    return self.retrieve_data('previous_error')
+
+  def get_throttle_previous(self):
+    return self.retrieve_data('throttle_previous')
+
+  def get_waypoints(self):
+    return self.retrieve_data('waypoints')
+
+  def arrived_at(self, destination):
+    return self.distance(self.get_location(),destination) < 5.0
+
   def update_destination(self, new_destination):
-    #TODO: Rather than equality, this needs to check distance (distance is bigger than 0)     
-    if self.destination != new_destination:
+    if self.distance(self.destination,new_destination) < 5.0:
       self.destination = new_destination
       self.destination_changed(new_destination)
-   
+
   # A function to receive data from monitor
   # TODO: Add callback so that analyser can know when to parse the data
   def update_data(self, data_name, pars):
     self.memory[data_name] = pars
     self.data_changed(data_name)
+
+  def distance(self, vec1, vec2):
+    l1 = carla.Location(vec1)
+    l2 = carla.Location(vec2)
+    return l1.distance(l2)
