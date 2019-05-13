@@ -32,6 +32,8 @@ class Knowledge(object):
     self.destination_changed = lambda *_, **__: None
     self.data_changed = lambda *_, **__: None
 
+    self.DEBUG = True
+
   def set_data_changed_callback(self, callback):
     self.data_changed = callback
 
@@ -104,8 +106,11 @@ class Knowledge(object):
   def get_throttle_previous(self):
     return self.retrieve_data('throttle_previous')
 
-  def get_waypoints(self):
-    return self.retrieve_data('waypoints')
+  def get_look_ahead(self):
+    return self.retrieve_data('look_ahead')
+
+  def get_target_speed(self):
+    return self.retrieve_data('target_speed')
 
   def arrived_at(self, destination):
     return self.distance(self.get_location(),destination) < 5.0

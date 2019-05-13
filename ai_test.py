@@ -144,7 +144,6 @@ def main():
             control.hand_brake = False
             kamikaze.apply_control(control)
    
-
         ctr = 0
         running = True
         while running:
@@ -156,7 +155,6 @@ def main():
             else:
                 ctr = 0
 
-            
             #print ("distance: ", vehicle.get_transform().location.distance(carla.Location(ex1[2])))
             time.sleep(0.5)
 
