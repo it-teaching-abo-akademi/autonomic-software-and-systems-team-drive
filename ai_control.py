@@ -45,37 +45,13 @@ class Executor(object):
       #calculate throttle and heading
       #target_speed =self.update_desired_speed(waypoints)
       throttle = self.calculate_throttle(1, self.knowledge.get_throttle_previous(), delta_time)
-      steer = self.calculate_steer(waypoints)
+      steer = self.calculate_steer_prop(waypoints)
       control = carla.VehicleControl()
       control.throttle = throttle
       control.steer = steer #self.calculate_steer(waypoints)
       control.brake = 0.0 #np.fmax(np.fmin(0.0, 1.0), 0.0)
       control.hand_brake = False
       self.vehicle.apply_control(control)
-
-
-
-  def update_desired_speed(self,waypoints):
-    
-    min_idx       = 0
-    min_dist      = float("inf")
-    desired_speed = 0
-
-    x = self.knowledge.get_location().x
-    y = self.knowledge.get_location().y
-
-    for i in range(len(waypoints)):
-        dist = np.linalg.norm(np.array([
-                waypoints[i][0] - x,
-                waypoints[i][1] - y]))
-        if dist < min_dist:
-            min_dist = dist
-            min_idx = i
-    if min_idx < len(waypoints)-1:
-        desired_speed = waypoints[min_idx][2]
-    else:
-        desired_speed = waypoints[-1][2]
-    return desired_speed
 
   def calculate_throttle(self, target_speed, throttle_previous, delta_time):
       # Pid throttle control
@@ -109,6 +85,25 @@ class Executor(object):
       self.knowledge.update_data("throttle_previous", throttle_output)
       return np.fmax(np.fmin(throttle_output, 1.0), 0.0)
 
+  def calculate_steer_prop(self, waypoints):
+    destination_vec = np.array([waypoints[-1][0]-waypoints[0][0], waypoints[-1][1]-waypoints[0][1], 0])
+    heading_vec = np.array([self.knowledge.get_rotation().get_forward_vector().x, self.knowledge.get_rotation().get_forward_vector().y, 0])
+    destination_norm = destination_vec / np.linalg.norm(destination_vec)
+
+    cross = np.cross(heading_vec, destination_norm) 
+   
+    dot_prod = min(max(np.dot(heading_vec, destination_norm), -1), 1)
+    angle = math.degrees(math.acos(dot_prod))
+
+    if (np.dot(np.array([0,0,1]), cross)) < 0:
+      angle = -angle
+    print(angle)
+    max_steering =  70
+
+    # Use some damping
+    steering_angle = angle / (max_steering*1.2)
+    return steering_angle
+
   def calculate_steer(self, waypoints):
  
     # Stanley controller for lateral control
@@ -120,11 +115,12 @@ class Executor(object):
     # 1. calculate heading error
     yaw_path = np.arctan2(waypoints[-1][1]-waypoints[0][1], waypoints[-1][0]-waypoints[0][0])
     yaw_diff = yaw_path - math.radians(self.knowledge.get_rotation().yaw)
-    print(yaw_diff)
+
     if yaw_diff > np.pi:
         yaw_diff -= 2 * np.pi
     if yaw_diff < - np.pi:
         yaw_diff += 2 * np.pi
+    print(yaw_diff)
     # 2. calculate crosstrack error
     x = self.knowledge.get_location().x
     y = self.knowledge.get_location().y
