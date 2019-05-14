@@ -32,7 +32,7 @@ class Knowledge(object):
     self.destination_changed = lambda *_, **__: None
     self.data_changed = lambda *_, **__: None
 
-    self.DEBUG = True
+    self.DEBUG = False
 
   def set_data_changed_callback(self, callback):
     self.data_changed = callback
@@ -85,7 +85,10 @@ class Knowledge(object):
   def get_lidar(self):
     return self.retrieve_data('lidar')
 
-  def lidar_close(self):
+  def get_lidar_location(self):
+    return self.retrieve_data('lidar_location')
+
+  def get_lidar_close(self):
     return self.retrieve_data('lidar_close')
 
   def get_at_traffic_light(self):

@@ -49,12 +49,12 @@ class Executor(object):
     
     forward = self.knowledge.get_rotation().get_forward_vector()
     velocity = self.knowledge.get_velocity()
-    curret_speed = np.linalg.norm(np.dot(np.array([velocity.x, velocity.y, velocity.z]),np.array([forward.x, forward.y, forward.z])))
+    current_speed = np.linalg.norm(np.dot(np.array([velocity.x, velocity.y]),np.array([forward.x, forward.y])))
 
     if look_ahead is not None:
       # calculate throttle and steer
-      throttle = self.calculate_throttle(target_speed, curret_speed, delta_time)
-      steer = self.calculate_steer(look_ahead,curret_speed)
+      throttle = self.calculate_throttle(target_speed, current_speed, delta_time)
+      steer = self.calculate_steer(look_ahead,current_speed)
       
       control = carla.VehicleControl()
       control.throttle = throttle
@@ -64,6 +64,7 @@ class Executor(object):
       self.vehicle.apply_control(control)
 
   def calculate_throttle(self, target_speed, speed, delta_time):
+      delta_time = delta_time/1000
       # Pid throttle control
       kp = 1
       ki = 1
@@ -84,7 +85,7 @@ class Executor(object):
         throttle_output = np.tanh(result)
      
         throttle_output = max(0.0, min(1.0, throttle_output))
-        if throttle_output -  self.knowledge.get_throttle_previous() > 0.1:
+        if throttle_output - self.knowledge.get_throttle_previous() > 0.1:
             throttle_output = self.knowledge.get_throttle_previous() + 0.1
     
       else:
@@ -119,8 +120,9 @@ class Executor(object):
     x = self.knowledge.get_location().x + self.knowledge.get_bounding_box().extent.x * heading.x
     y = self.knowledge.get_location().y + self.knowledge.get_bounding_box().extent.y * heading.y
 
-    self.knowledge.get_world().debug.draw_point(carla.Location(x,y,4),
-            color=carla.Color(r=0, g=255, b=255), life_time=1.0) 
+    if self.knowledge.DEBUG:
+      self.knowledge.get_world().debug.draw_point(carla.Location(x,y,4),
+              color=carla.Color(r=0, g=255, b=255), life_time=1.0) 
 
     current_xy = np.array([x, y])
     crosstrack_error = np.min(np.sum((current_xy - np.array(waypoints)[:, :2])**2, axis=1))
@@ -203,15 +205,17 @@ class Planner(object):
           self.knowledge.update_data("target_speed", 0)
           print("At red light")
         else:
-          self.knowledge.update_data("target_speed", 2)
-        return self.path[0]
+          self.knowledge.update_data("target_speed", 3)
       else:
         self.knowledge.set_status(Status.ARRIVED)
+        print("Arrived at Destination")
+      return self.knowledge.get_location()
     if status == Status.ARRIVED:
       return self.knowledge.get_location()
     if status == Status.HEALING:
       #TODO: Implement crash handling. Probably needs to be done by following waypoint list to exit the crash site.
       #Afterwards needs to remake the path.
+      ##
       return self.knowledge.get_location()
     if status == Status.CRASHED:
       #TODO: implement function for crash handling, should provide map of wayoints to move towards to for exiting crash state. 
@@ -287,7 +291,6 @@ class Planner(object):
 
       pe = [carla.Location(xx[i],yy[i],1) for i in range(len(xx))]
       points.extend(pe)
-      print(pe)
 
       # Interpolate start location to source
 
@@ -299,8 +302,6 @@ class Planner(object):
 
       pe = [carla.Location(xx[i],yy[i],1) for i in range(len(xx))]
       point = pe.extend(points)
-
-    if self.knowledge.DEBUG:
       
       self.knowledge.get_world().debug.draw_point(destination, color=carla.Color(r=0, g=0, b=0), life_time=20.0)
       
@@ -310,9 +311,10 @@ class Planner(object):
         color=carla.Color(r=0, g=255, b=255), life_time=120.0)
         self.knowledge.get_world().debug.draw_point(destination_waypoint.transform.location, color=carla.Color(r=255, g=255, b=255), life_time=20.0)
 
-      for p in points:
+      if self.knowledge.DEBUG:
+        for p in points:
+          self.knowledge.get_world().debug.draw_point(p, color=carla.Color(r=255, g=0, b=0), life_time=20.0)
 
-        self.knowledge.get_world().debug.draw_point(p, color=carla.Color(r=255, g=0, b=0), life_time=20.0)
     return deque(points)
 
 

@@ -5,6 +5,7 @@ import os
 import sys
 
 import numpy as np
+import math
 
 from utils import PathGraph
 
@@ -52,22 +53,28 @@ class Monitor(object):
     self.knowledge.update_data("look_ahead", None)
     self.knowledge.update_data("target_speed", None)
     self.knowledge.update_data('lidar',None)
-    """
-    # Set up lidar
-    lidar = self.vehicle.get_world().get_blueprint_library().find('sensor.lidar.ray_cast')
-    lidar.set_attribute('range', '500') 
-    lidar.set_attribute('points_per_second', '1000') #Limit amout of points
-    lidar.set_attribute('channels', '8')
-    lidar.set_attribute('upper_fov', '-10')
-    lidar.set_attribute('lower_fov', '-55')
-    lidar.set_attribute('sensor_tick', '30')
-    transform = carla.Transform(carla.Location(z=3))
 
-    self.sensor = self.vehicle.get_world().spawn_actor(lidar, transform, attach_to=self.vehicle)
+    # Set up lidar
+    zd = self.vehicle.bounding_box.extent.z*2.1
+    xd = self.vehicle.bounding_box.extent.x+1.5
+
+    angle =  math.degrees(math.tanh(zd/xd))
+    dist = math.sqrt(xd**2+zd**2)*100
+  
+    lidar = self.vehicle.get_world().get_blueprint_library().find('sensor.lidar.ray_cast')
+    lidar.set_attribute('points_per_second', str(200))
+    lidar.set_attribute('channels', str(2))
+    lidar.set_attribute('range', str(dist))
+    lidar.set_attribute('upper_fov', str(angle))
+    lidar.set_attribute('lower_fov', str(-angle))
+    lidar.set_attribute('sensor_tick', '0.5')
+    lidar_location =carla.Location(z=self.vehicle.bounding_box.extent.z*2.1) # Car height can change
+    self.knowledge.update_data('lidar_location',lidar_location)
+    self.sensor = self.vehicle.get_world().spawn_actor(lidar,carla.Transform(lidar_location), attach_to=self.vehicle)
     
     self.knowledge.update_data('lidar',None)
     self.sensor.listen(lambda event: Monitor._lidar_update(weak_self, event))
-    """
+
 
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
@@ -180,18 +187,27 @@ class Analyser(object):
     return
 
   def parse_lidar(self):
-    
-    lidar = self.knowledge.get_lidar()
-    if lidar is not None:
 
-      location = self.knowledge.get_location()
+    lidar = self.knowledge.get_lidar()
+  
+    if lidar is not None:
       bounding_box = self.knowledge.get_bounding_box()
+      location = self.knowledge.get_location()
+      lidar_location = self.knowledge.get_lidar_location()
+      
+      sensor_position = carla.Location(location.x+lidar_location.x, location.y+lidar_location.y,lidar_location.z+location.z)
+      
+      if self.knowledge.DEBUG:
+        self.knowledge.get_world().debug.draw_point(sensor_position,
+        color=carla.Color(r=255, g=0, b=0), life_time=1.0) 
+      
+
 
       detections = []
 
       if not lidar == None:     
         for point in lidar:          
-          relative_location = carla.Location(location.x+point.x, location.y+point.y, 3+location.z+point.z) # 3 => Lidar height
+          relative_location = carla.Location(location.x+point.x, location.y+point.y, 1.5+bounding_box.extent.z+location.z+point.z) # 3 => Lidar height
 
           valid_x = relative_location.x > bounding_box.extent.x  and relative_location.x < -bounding_box.extent.x
           valid_y = relative_location.y > bounding_box.extent.y  and relative_location.y < -bounding_box.extent.y
@@ -201,10 +217,10 @@ class Analyser(object):
           if valid_x and valid_y and valid_z and self.knowledge.distance(relative_location, location) < 3: # 3 =>  Max distance 
             detections.append(point)
             
-            if self.knowledge.DEBUG:
-              # Draw where the lidar points are close
-              self.knowledge.get_world().debug.draw_point(relative_location,
-              color=carla.Color(r=0, g=255, b=0), life_time=1.0) 
+          if self.knowledge.DEBUG:
+            # Draw where the lidar points are close
+            self.knowledge.get_world().debug.draw_line(relative_location,sensor_position,
+            color=carla.Color(r=0, g=255, b=0), life_time=1.0) 
       
       self.knowledge.update_data('lidar_close', detections)
 

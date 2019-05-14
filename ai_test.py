@@ -148,7 +148,7 @@ def main():
         running = True
         while running:
             status = autopilot.update()
-            if status == None:
+            if status == ai.data.Status.ARRIVED:
                 ctr += 1
                 if ctr > 3:
                    running = False
